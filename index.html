@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FFFFFF">
+<title>Coin Tap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #FFFFFF; overflow: hidden; }
+  body { font-family: Inter, system-ui, sans-serif; color: #161823; font-variant-numeric: tabular-nums; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+  button { font: inherit; }
+
+  /* The app is drawn at tablet size (834x1194) and scaled to fit any screen */
+  #stage { position: absolute; left: 50%; top: 50%; width: 834px; height: 1194px; transform-origin: center center; overflow: hidden; background: #FFFFFF; }
+
+  .glow { text-shadow: -2px 0 3px rgba(37,244,238,.9), 2px 0 3px rgba(254,44,85,.85); }
+
+  .top { display: flex; flex-direction: column; align-items: center; padding-top: 72px; }
+  .name { display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 8px 12px; min-height: 44px; font-size: 26px; font-weight: 600; color: #161823; }
+  .avatar-wrap { position: relative; width: 176px; height: 176px; margin-top: 44px; }
+  .avatar { width: 176px; height: 176px; border-radius: 50%; background: #F1F1F2; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+  .badge { position: absolute; right: 2px; bottom: 6px; width: 44px; height: 44px; border-radius: 50%; background: #20D5EC; border: 4px solid #FFFFFF; display: flex; align-items: center; justify-content: center; }
+  .handle { margin-top: 18px; font-size: 21px; font-weight: 500; color: #2F3038; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; width: 600px; margin-top: 40px; text-align: center; }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .stat-num { font-size: 40px; font-weight: 700; line-height: 1.1; }
+  .stat-label { font-size: 18px; color: #6B6B73; }
+  .balance { display: flex; align-items: center; gap: 10px; font-size: 40px; font-weight: 800; line-height: 1.1; color: #161823; transition: color .15s; }
+  .balance.counting { color: #FE2C55; }
+
+  .coin-btn { position: absolute; left: 257px; top: 650px; width: 320px; height: 320px; border-radius: 50%; border: 0; padding: 0; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: -12px 0 30px rgba(37,244,238,.45), 12px 0 30px rgba(254,44,85,.40), 0 24px 50px rgba(22,24,35,.10);
+    transition: transform .12s ease; }
+  .coin-btn:active, .coin-btn.pressed { transform: scale(.94); }
+  .coin-btn .coin-art { transition: transform .12s ease; pointer-events: none; }
+  .coin-btn:active .coin-art, .coin-btn.pressed .coin-art { transform: scale(.9) rotate(-6deg); }
+  .coin-btn:focus-visible { outline: 4px solid #161823; outline-offset: 6px; }
+
+  .hint { position: absolute; left: 0; right: 0; top: 1004px; text-align: center; font-size: 19px; font-weight: 500; color: #6B6B73; }
+
+  .red-btn { border: 0; border-radius: 14px; background: #FE2C55; color: #FFFFFF; font-weight: 700; cursor: pointer; transition: transform .12s ease, background .12s ease, opacity .12s ease; }
+  .red-btn:hover { background: #E8264D; }
+  .red-btn:active { transform: scale(.98); }
+  .red-btn:disabled { opacity: .4; cursor: default; transform: none; background: #FE2C55; }
+  .bottom-btn { position: absolute; left: 64px; right: 64px; top: 1062px; height: 76px; font-size: 24px; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: -4px 0 0 #25F4EE; }
+
+  .layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .piece { position: absolute; opacity: 0; }
+  .ring { position: absolute; left: 257px; top: 650px; width: 320px; height: 320px; border-radius: 50%; border: 6px solid #25F4EE; animation: ring .6s ease-out forwards; }
+  .gain { position: absolute; left: 50%; top: 610px; font-size: 34px; font-weight: 800; color: #FE2C55; animation: gain 1s ease-out forwards; }
+
+  /* Withdraw sheet */
+  .overlay { position: absolute; inset: 0; background: rgba(22,24,35,.45); display: none; align-items: center; justify-content: center; animation: fade .2s ease-out; }
+  .overlay.open { display: flex; }
+  .card { width: 620px; background: #FFFFFF; border-radius: 28px; padding: 44px 44px 40px; box-shadow: 0 30px 80px rgba(22,24,35,.25); animation: pop .28s cubic-bezier(.2,.8,.3,1); }
+  .card h2 { margin: 0; font-size: 34px; font-weight: 800; }
+  .card p { margin: 0; font-size: 20px; line-height: 1.45; color: #6B6B73; }
+  .card p b { color: #161823; }
+  .field-label { font-size: 17px; font-weight: 600; color: #2F3038; }
+  .field { display: flex; align-items: center; gap: 8px; height: 72px; border: 2px solid #E3E3E6; border-radius: 14px; background: #F8F8F8; padding: 0 10px 0 20px; }
+  .field:focus-within { border-color: #161823; }
+  .field span { font-size: 22px; font-weight: 600; color: #6B6B73; }
+  .field input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 22px; font-weight: 600; color: #161823; outline: none; -webkit-user-select: text; user-select: text; }
+  .paste-btn { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 18px; border: 0; border-radius: 10px; background: #F1F1F2; font-size: 18px; font-weight: 700; color: #161823; cursor: pointer; }
+  .paste-btn:hover { background: #E6E6E8; }
+  .paste-btn:active { transform: scale(.96); }
+  .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .ghost-btn { height: 68px; border: 0; border-radius: 14px; background: #F1F1F2; font-size: 21px; font-weight: 700; color: #161823; cursor: pointer; }
+  .ghost-btn:hover { background: #E6E6E8; }
+  .actions .red-btn { height: 68px; font-size: 21px; }
+  .col { display: flex; flex-direction: column; }
+  .spinner { width: 72px; height: 72px; border-radius: 50%; border: 7px solid #F1F1F2; border-top-color: #FE2C55; border-right-color: #25F4EE; animation: spin .8s linear infinite; }
+
+  /* Congratulations screen */
+  .done { position: absolute; inset: 0; background: #FFFFFF; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; animation: fade .2s ease-out; }
+  .done.open { display: flex; }
+  .done h2 { margin: 0; font-size: 60px; font-weight: 800; line-height: 1.1; }
+  .done .amount { font-size: 96px; font-weight: 800; line-height: 1; color: #161823; }
+  .done .amount.counting { color: #FE2C55; }
+  .done p { margin: 0; font-size: 22px; color: #6B6B73; }
+  .done p b { color: #161823; }
+  .done .layer { z-index: 2; }
+
+  @keyframes confetti { 0% { opacity: 1; transform: translate(-50%,-50%) rotate(0deg); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); } }
+  @keyframes fall { 0% { opacity: 0; transform: translate(0,-40px) rotate(0deg); } 8% { opacity: 1; } 50% { transform: translate(var(--sx),600px) rotate(calc(var(--rot) / 2)); } 92% { opacity: 1; } 100% { opacity: 0; transform: translate(0,1260px) rotate(var(--rot)); } }
+  @keyframes shoot { 0% { opacity: 1; transform: translate(-50%,-50%) rotate(0deg); } 55% { opacity: 1; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(calc(var(--rot) / 2)); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx) * 1.15), calc(-50% + var(--dy) + 420px)) rotate(var(--rot)); } }
+  @keyframes ring { 0% { opacity: .55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.35); } }
+  @keyframes gain { 0% { opacity: 0; transform: translate(-50%,10px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-120px); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.92) translateY(16px); } 100% { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <div class="top">
+    <button type="button" class="name glow" aria-label="Switch account">
+      Dragon Warrior
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6B73" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+
+    <div class="avatar-wrap">
+      <div class="avatar">
+        <svg width="132" height="132" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="24" r="11" fill="#C4C4CA"/><path d="M10 64c0-14 10-22 22-22s22 8 22 22z" fill="#C4C4CA"/></svg>
+      </div>
+      <div class="badge">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+    </div>
+
+    <div class="handle">@dragon_warrior</div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num glow">0</div>
+        <div class="stat-label">Following</div>
+      </div>
+      <div class="stat">
+        <div class="balance glow" id="balance">
+          <!-- Замененная иконка баланса -->
+          <img width="34" height="34" src="https://cdn.imagetourls.com/uploads/tyImg/HZIolFqY.png" alt="Coin" aria-hidden="true">
+          <span id="balanceNum">0</span>
+        </div>
+        <div class="stat-label">Balance</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num glow">0</div>
+        <div class="stat-label">Likes</div>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="coin-btn" id="coinBtn" aria-label="Tap the coin to earn">
+    <!-- Замененная иконка главной кнопки -->
+    <img class="coin-art" width="172" height="172" src="https://cdn.imagetourls.com/uploads/tyImg/HZIolFqY.png" alt="Coin" aria-hidden="true">
+  </button>
+
+  <div class="hint">Tap the coin to grow your balance</div>
+
+  <button type="button" class="red-btn bottom-btn" id="withdrawBtn" disabled>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+    Withdraw to balance
+  </button>
+
+  <div class="layer" id="tapLayer" aria-hidden="true"></div>
+
+  <!-- Withdraw sheet: nickname + loading -->
+  <div class="overlay" id="sheet">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="wdTitle">
+      <div class="col" id="nickView" style="gap: 28px">
+        <div class="col" style="gap: 10px">
+          <h2 id="wdTitle" class="glow">Withdraw to balance</h2>
+          <p>Enter your username to receive <b id="sheetAmount">0</b> coins.</p>
+        </div>
+        <div class="col" style="gap: 10px">
+          <label for="nickInput" class="field-label">Username</label>
+          <div class="field">
+            <span>@</span>
+            <input id="nickInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="username">
+            <button type="button" class="paste-btn" id="pasteBtn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#161823" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg>
+              Paste
+            </button>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost-btn" id="cancelBtn">Cancel</button>
+          <button type="button" class="red-btn" id="confirmBtn" disabled>Withdraw</button>
+        </div>
+      </div>
+
+      <div class="col" id="loadingView" style="display: none; align-items: center; gap: 24px; padding: 40px 0 30px">
+        <div class="spinner" role="status" aria-label="Processing"></div>
+        <div style="font-size: 24px; font-weight: 700">Processing withdrawal…</div>
+        <div style="font-size: 19px; color: #6B6B73">Sending to @<span id="loadingNick"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Congratulations -->
+  <div class="done" id="done">
+    <!-- Замененная иконка на экране завершения -->
+    <img width="150" height="150" src="https://cdn.imagetourls.com/uploads/tyImg/HZIolFqY.png" alt="Coin" aria-hidden="true">
+    <h2 class="glow">Congratulations!</h2>
+    <div class="amount glow" id="wdAmount">+0</div>
+    <p>coins sent to <b>@<span id="doneNick"></span></b></p>
+    <button type="button" class="red-btn bottom-btn" id="doneBtn">Done</button>
+    <div class="layer" id="doneLayer" aria-hidden="true"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- scale the 834x1194 tablet layout to any screen ----------
+  var stage = document.getElementById('stage');
+  function fit() {
+    var s = Math.min(window.innerWidth / 834, window.innerHeight / 1194);
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  // ---------- helpers ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var COLORS = ['#FE2C55', '#25F4EE', '#161823', '#F6C343'];
+
+  function fmt(n) {
+    n = Math.floor(n);
+    if (n < 10000) return n.toLocaleString('en-US');
+    if (n < 1000000) return (n / 1000).toFixed(1) + 'K';
+    return (n / 1000000).toFixed(1) + 'M';
+  }
+
+  function genNick() {
+    var a = ['lucky', 'golden', 'swift', 'cosmic', 'neon', 'silent', 'happy', 'crazy', 'royal', 'pixel', 'sunny', 'frosty'];
+    var b = ['fox', 'tiger', 'panda', 'wolf', 'falcon', 'shark', 'koala', 'otter', 'dragon', 'bunny', 'lynx', 'raven'];
+    var pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
+    return pick(a) + '_' + pick(b) + Math.floor(100 + Math.random() * 900);
+  }
+
+  function makePiece(layer, i, css) {
+    var el = document.createElement('span');
+    var size = 7 + Math.round(Math.random() * 8);
+    var round = Math.random() > 0.5;
+    el.className = 'piece';
+    el.style.width = size + 'px';
+    el.style.height = (round ? size : Math.round(size * 0.55)) + 'px';
+    el.style.borderRadius = round ? '50%' : '2px';
+    el.style.background = COLORS[i % COLORS.length];
+    el.style.setProperty('--rot', Math.round(Math.random() * 900 - 450) + 'deg');
+    for (var k in css) {
+      if (k.indexOf('--') === 0) el.style.setProperty(k, css[k]); else el.style[k] = css[k];
+    }
+    layer.appendChild(el);
+    if (!/infinite/.test(css.animation)) {
+      el.addEventListener('animationend', function () { el.remove(); });
+    }
+    return el;
+  }
+
+  function burst(layer, x, y, n) {
+    for (var i = 0; i < n; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var dist = 140 + Math.random() * 300;
+      makePiece(layer, i, {
+        left: x + 'px', top: y + 'px',
+        '--dx': Math.round(Math.cos(ang) * dist) + 'px',
+        '--dy': Math.round(Math.sin(ang) * dist * 0.8 + 80) + 'px',
+        animation: 'confetti ' + (1000 + Math.round(Math.random() * 800)) + 'ms cubic-bezier(.15,.7,.3,1) ' + Math.round(Math.random() * 200) + 'ms forwards'
+      });
+    }
+  }
+
+  function celebrate(layer) {
+    var i;
+    // confetti rain from the top (keeps going until Done)
+    for (i = 0; i < 110; i++) {
+      makePiece(layer, i, {
+        left: Math.round(Math.random() * 834) + 'px', top: '-20px',
+        '--sx': Math.round(Math.random() * 120 - 60) + 'px',
+        animation: 'fall ' + (2400 + Math.round(Math.random() * 2000)) + 'ms linear ' + Math.round(Math.random() * 3000) + 'ms infinite'
+      });
+    }
+    // two cannons from the bottom corners
+    for (i = 0; i < 120; i++) {
+      var left = i % 2 === 0;
+      var ang = ((left ? -60 : -120) + (Math.random() * 40 - 20)) * Math.PI / 180;
+      var dist = 500 + Math.random() * 450;
+      makePiece(layer, i, {
+        left: (left ? 20 : 814) + 'px', top: '1150px',
+        '--dx': Math.round(Math.cos(ang) * dist) + 'px',
+        '--dy': Math.round(Math.sin(ang) * dist) + 'px',
+        animation: 'shoot ' + (1600 + Math.round(Math.random() * 900)) + 'ms cubic-bezier(.1,.75,.3,1) ' + Math.round(Math.random() * 250) + 'ms forwards'
+      });
+    }
+    // burst in the middle
+    burst(layer, 417, 520, 80);
+  }
+
+  // ---------- counters ----------
+  var target = 0, shown = 0, taps = 0;
+  var wdTarget = 0, wdShown = 0;
+  var raf = null;
+
+  function render() {
+    $('balanceNum').textContent = fmt(shown);
+    $('balance').classList.toggle('counting', shown < target);
+    $('withdrawBtn').disabled = target <= 0;
+    $('wdAmount').textContent = '+' + fmt(wdShown);
+    $('wdAmount').classList.toggle('counting', wdShown < wdTarget);
+  }
+
+  function tick() {
+    var busy = false;
+    if (shown < target) { shown = Math.min(target, shown + Math.max(1, Math.ceil((target - shown) * 0.15))); busy = true; }
+    if (wdShown < wdTarget) { wdShown = Math.min(wdTarget, wdShown + Math.max(1, Math.ceil((wdTarget - wdShown) * 0.06))); busy = true; }
+    render();
+    raf = busy ? requestAnimationFrame(tick) : null;
+  }
+  function startTick() { if (!raf) raf = requestAnimationFrame(tick); }
+
+  // ---------- tapping ----------
+  var tapLayer = $('tapLayer');
+  function onTap() {
+    taps++;
+    // ~10 taps ≈ 1,800–2,100 coins
+    var gain = 120 + taps * 12 + Math.floor(Math.random() * 30);
+    target += gain;
+
+    burst(tapLayer, 417, 330, 30);
+
+    var ring = document.createElement('span');
+    ring.className = 'ring';
+    ring.addEventListener('animationend', function () { ring.remove(); });
+    tapLayer.appendChild(ring);
+
+    var g = document.createElement('span');
+    g.className = 'gain';
+    g.textContent = '+' + fmt(gain);
+    g.addEventListener('animationend', function () { g.remove(); });
+    tapLayer.appendChild(g);
+
+    startTick();
+  }
+  var coinBtn = $('coinBtn');
+  coinBtn.addEventListener('click', onTap);
+  // snappy press feedback on touch screens
+  coinBtn.addEventListener('touchstart', function () { coinBtn.classList.add('pressed'); }, { passive: true });
+  coinBtn.addEventListener('touchend', function () { coinBtn.classList.remove('pressed'); });
+  coinBtn.addEventListener('touchcancel', function () { coinBtn.classList.remove('pressed'); });
+
+  // ---------- withdraw flow ----------
+  var sheet = $('sheet'), nickInput = $('nickInput'), confirmBtn = $('confirmBtn');
+  var nickView = $('nickView'), loadingView = $('loadingView');
+
+  function setNick(v) {
+    nickInput.value = String(v || '').replace(/^@+/, '').replace(/\s/g, '');
+    confirmBtn.disabled = nickInput.value.length === 0;
+  }
+
+  $('withdrawBtn').addEventListener('click', function () {
+    $('sheetAmount').textContent = fmt(target);
+    setNick('');
+    nickView.style.display = 'flex';
+    loadingView.style.display = 'none';
+    sheet.classList.add('open');
+  });
+  $('cancelBtn').addEventListener('click', function () { sheet.classList.remove('open'); });
+  $('pasteBtn').addEventListener('click', function () { setNick(genNick()); });
+  nickInput.addEventListener('input', function () { setNick(nickInput.value); });
+
+  confirmBtn.addEventListener('click', function () {
+    var nick = nickInput.value;
+    if (!nick) return;
+    $('loadingNick').textContent = nick;
+    nickView.style.display = 'none';
+    loadingView.style.display = 'flex';
+
+    setTimeout(function () {
+      wdTarget = target; wdShown = 0;
+      target = 0; shown = 0; taps = 0;
+      sheet.classList.remove('open');
+      $('doneNick').textContent = nick;
+      $('done').classList.add('open');
+      celebrate($('doneLayer'));
+      render();
+      startTick();
+    }, 1000);
+  });
+
+  $('doneBtn').addEventListener('click', function () {
+    $('done').classList.remove('open');
+    $('doneLayer').innerHTML = '';
+    wdTarget = 0; wdShown = 0;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
